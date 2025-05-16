@@ -1,14 +1,16 @@
 import express, { json } from "express";
 import cors from "cors";
 import { MongoClient } from "mongodb"; 
+import dotenv from "dotenv";
 import joi from "joi";
+dotenv.config();
 
 const app = express();
 app.use(cors());
 app.use(json());
 
 
-const mongoCLient = new MongoClient("mongodb://127.0.0.1:27017/tweeteroo");
+const mongoCLient = new MongoClient(process.env.DATABASE_URL);
 let db;
 
 mongoCLient.connect()
@@ -52,5 +54,7 @@ app.post("/tweets", (req, res) => {
     .catch(err => res.status(500).send(err.message))
 })
 
-
-app.listen(5000);
+const porta = process.env.PORT || 5000;
+app.listen(porta, () => {
+    console.log(`Servidor rodando da porta ${porta}`);
+});
