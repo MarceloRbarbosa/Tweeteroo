@@ -1,6 +1,6 @@
 import express, { json } from "express";
 import cors from "cors";
-import { MongoClient } from "mongodb"; 
+import { MongoClient, ObjectId } from "mongodb"; 
 import dotenv from "dotenv";
 import joi from "joi";
 dotenv.config();
@@ -27,7 +27,13 @@ app.get("/tweets", (req, res) => {
 
 app.get("/tweets/:id", (req, res) => {
     const id = req.params.id;
-    const tweet = tweets.find(tweet => tweet._id === Number(id));
+    db.collection("tweets").findOne({
+        _id: new ObjectId(id)
+    })
+    .then(tweet => {
+        return res.send(tweet);
+    })
+   .catch(err => res.status(404).send(err.message))
     res.send(tweet);
 });
 
