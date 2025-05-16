@@ -1,5 +1,6 @@
 import express, { json } from "express";
 import cors from "cors";
+import { MongoClient } from "mongodb"; 
 import joi from "joi";
 
 const app = express();
@@ -7,51 +8,24 @@ app.use(cors());
 app.use(json());
 
 
+const mongoCLient = new MongoClient("mongodb://127.0.0.1:27017/tweeteroo");
+let db;
 
-const users = [
-    {
-        _id: 1,
-        username: "bobesponja",
-        avatar: "https://bobesponja.com.br/imagens/thumbnail.png"
-    },
-    {
-        _id: 2,
-        username: "Patrick",
-        avatar: "https://bobesponja.com.br/imagens/thumbnail.png"
-    },
-    {
-        _id: 3,
-        username: "Lula Molusco",
-        avatar: "https://bobesponja.com.br/imagens/thumbnail.png"
-    }
-];
+mongoCLient.connect()
+.then(()=> db = mongoCLient.db())
+.catch((err)=> console.log(err.message));
 
-const tweets = [
-    {
-        _id: 1,
-        username: "bobesponja",
-        tweet: "Eu faço hambúrguer de siri!"
-    },
-    {
-        _id: 2,
-        username: "Patrick",
-        tweet: "Eu amo hambúrguer de siri!"
-    },
-    {
-        _id: 3,
-        username: "Lula Molusco",
-        tweet: "Eu odeio hambúrguer de siri!"
-    }
-];
 
 
 app.get("/tweets", (req, res) => {
-    res.send(tweets);
+    db.collection("tweets").find().toArray()
+    .then(data => res.send(data))
+    .catch(err => res.status(500).send(err.message))
 });
 
 app.get("/tweets/:id", (req, res) => {
     const id = req.params.id;
-    const tweet = tweets.find(tweet => tweet.id === Number(id));
+    const tweet = tweets.find(tweet => tweet._id === Number(id));
     res.send(tweet);
 });
 
@@ -73,8 +47,9 @@ app.post("/tweets", (req, res) => {
         return res.status(422).send("error")
     }
 
-    tweets.push({ _id: tweets.length + 1, ...message });
-    res.status(201).send("msg enviada");
+    db.collection("tweets").insertOne(message)
+    .then(()=>res.status(201).send("Seu tweet foi enviado com sucesso!"))
+    .catch(err => res.status(500).send(err.message))
 })
 
 
