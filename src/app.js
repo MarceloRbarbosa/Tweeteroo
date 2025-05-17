@@ -3,6 +3,7 @@ import cors from "cors";
 import { MongoClient, ObjectId } from "mongodb"; 
 import dotenv from "dotenv";
 import joi from "joi";
+
 dotenv.config();
 
 const app = express();
@@ -18,47 +19,88 @@ mongoCLient.connect()
 .catch((err)=> console.log(err.message));
 
 
-
-app.get("/tweets", (req, res) => {
-    db.collection("tweets").find().toArray()
-    .then(data => res.send(data))
-    .catch(err => res.status(500).send(err.message))
-});
-
-app.get("/tweets/:id", (req, res) => {
-    const id = req.params.id;
-    db.collection("tweets").findOne({
-        _id: new ObjectId(id)
-    })
-    .then(tweet => {
-        return res.send(tweet);
-    })
-   .catch(err => res.status(404).send(err.message))
-    res.send(tweet);
-});
-
-
-
-app.post("/sign-up", (req, res) => {
+app.post("/sign-up", async (req, res) => {
     const user = req.body;
-    if (!user.username || !user.avatar) {
-        return res.status(422).send("error")
+    
+    const userSchema = joi.object({
+        username:joi.string().required(),
+        avatar: joi.string().required()
+    });
+    
+    const validation = userSchema.validate(user,{abortEarly: false});
+    if (validation.error){
+        const message = validation.error.details.map(detail => detail.message)
+        return  res.status(422).send(message)
     }
+    
+    try{
+        const newUser = await db.collection("users").findOne({username: user.username})
+        if(newUser){ 
+            return res.status(409).send("Este usuario já existe!") 
+        }
+        await db.collection('users').insertOne(user)
+        res.status(201).send("Usuário criado com sucesso!")
+    }
+    catch(err){
+        res.status(500).send(err.message)
+    }
+});
 
-    users.push({ _id: users.length + 1, ...user });
-    res.status(201).send("Usuario conectado")
-})
 
-app.post("/tweets", (req, res) => {
+
+app.post("/tweets", async (req, res) => {
     const message = req.body;
-    if(!message.username || !message.tweet){
-        return res.status(422).send("error")
-    }
 
-    db.collection("tweets").insertOne(message)
-    .then(()=>res.status(201).send("Seu tweet foi enviado com sucesso!"))
-    .catch(err => res.status(500).send(err.message))
+    const tweetSchema = joi.object({
+        username:joi.string().required(),
+        tweets: joi.string().required()
+    });
+    
+    const validation = tweetSchema.validate(message, {abortEarly: false});
+    if(validation.error){
+        const message = validation.error.details.map(detail => detail.message)
+       return res.status(422).send(message)
+    }
+    
+    try{
+        await db.collection("tweets").insertOne(message)
+        res.status(201).send("Seu tweet foi enviado com sucesso!")
+    } catch(err){
+        res.status(500).send(err.message)
+    }
+});
+
+
+app.get("/tweets", async (req, res) => {
+    try {
+        const tweets = await db.collection("tweets").find().toArray()
+        res.send(tweets)
+     }
+     catch(err){
+        res.status(500).send(err.message)
+     }
+});
+
+
+app.delete("/tweets/:id", async(req, res)=> {
+    const {id} = req.params;
+
+try {
+    const result = await db.collection("tweets").deleteOne({
+     _id: new ObjectId(id)
+});
+
+if(result.deletedCount === 0){
+    return res.status(404).send("Esse tweet não existe!")
+}
+
+return res.status(204).send("Seu tweet foi deletado com sucesso!")
+
+} catch(err){
+    res.status(500).send(err.message)
+}
 })
+
 
 const porta = process.env.PORT || 5000;
 app.listen(porta, () => {
