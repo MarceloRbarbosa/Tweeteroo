@@ -61,6 +61,10 @@ app.post("/tweets", async (req, res) => {
   }
 
   try {
+    const userExist = await db.collection("users").findOne({username:message.username});
+    if(!userExist){
+        return res.status(401).send("Usuário não autorizado, realize o login na plataforma, para poder enviar seu tweet")
+    }
     await db.collection("tweets").insertOne(message);
     res.status(201).send("Seu tweet foi enviado com sucesso!");
   } catch (err) {
@@ -70,11 +74,46 @@ app.post("/tweets", async (req, res) => {
 
 app.get("/tweets", async (req, res) => {
   try {
-    const tweets = await db.collection("tweets").find().toArray();
+    const tweets = await db.collection("tweets")
+    .aggregate([
+        {
+             $lookup: {
+            from: "users", 
+            localField: "username", 
+            foreignField: "username", 
+            as: "userInfo"
+        }
+    },
+    {
+        $unwind: "$userInfo"
+    },
+    {
+        $project: {
+            _id: 1,
+            username: 1,
+            avatar: "$userInfo.avatar",
+            tweet: 1      
+    }
+},
+{
+          $sort: { _id: -1 } // Mais recentes primeiro
+        }
+    ])
+    
+.toArray();
     res.send(tweets);
   } catch (err) {
     res.status(500).send(err.message);
   }
+});
+
+app.get("/users", async (req, res) => {
+    try{
+        const user = await db.collection("users").find().toArray();
+        res.send(user);
+    } catch(err){
+        res.status(500).send(err.message);
+    }
 });
 
 app.delete("/tweets/:id", async (req, res) => {
